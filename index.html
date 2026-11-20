@@ -342,6 +342,8 @@ function sectionOverlayLink(){
       <div class="field" style="flex:1;min-width:220px;"><label>Sync Code (unique to your scoreboard)</label><input type="text" id="syncCode" value="${escapeHtml(SETTINGS.code)}"></div>
       <button class="btn secondary small" id="regenCodeBtn" style="margin-top:20px;">New Code</button>
     </div>
+    <div class="field" style="margin-top:4px;"><label>Firebase Realtime Database URL (for live sync)</label><input type="text" id="dbUrl" value="${escapeHtml(SETTINGS.url)}" placeholder="https://your-project-default-rtdb.firebaseio.com"></div>
+    <p class="note">This needs its own Firebase Realtime Database (free) with a rule allowing read/write under a <code>scoreboard</code> path, for example: <code>{"rules":{"scoreboard":{"$code":{".read":true,".write":true}}}}</code>. You can reuse your existing StreamBiz Firebase project — just add that <code>scoreboard</code> block to its rules (Firebase console → Realtime Database → Rules) alongside the existing <code>streambiz</code> block, so the two stay separate. Until that rule exists, scoring still works locally on this device but won't sync to the OBS overlay.</p>
   </div>`;
 }
 function bindOverlayLink(){
@@ -360,6 +362,10 @@ function bindOverlayLink(){
   };
   document.getElementById('regenCodeBtn').onclick = ()=>{
     SETTINGS.code = uid()+uid(); saveSettings(SETTINGS); renderMain(); toast('New sync code generated — update your OBS Browser Source URL'); schedulePush();
+  };
+  document.getElementById('dbUrl').onchange = e=>{
+    SETTINGS.url = e.target.value.trim().replace(/\/+$/,'');
+    saveSettings(SETTINGS); renderMain(); toast('Database URL updated'); schedulePush();
   };
 }
 
