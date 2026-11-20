@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glownest Scoreboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%236d5ef1'/%3E%3Ctext x='50' y='64' font-size='46' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='700'%3ES%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#faf9fd; --surface:#ffffff; --surface-2:#f1eefb; --surface-hover:#f6f4fc;
+  --border:#e9e4f7; --border-strong:#dcd4f1;
+  --text:#1a1625; --text-2:#4a4458; --muted:#857e98;
+  --accent:#6d5ef1; --accent-2:#9b8cfb; --accent-ink:#ffffff; --accent-soft:#efecfe;
+  --pos:#0ca678; --pos-soft:#e6f7f1;
+  --neg:#e5484d; --neg-soft:#fdeced;
+  --warn:#c2850a; --warn-soft:#faf1dc;
+  --shadow:0 1px 2px rgba(31,22,56,.04), 0 6px 20px rgba(31,22,56,.06);
+  --shadow-lg:0 16px 44px rgba(31,22,56,.14);
+  --radius:18px;
+  --teamA:#6d5ef1; --teamB:#e5484d;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;overflow-x:hidden;}
+body{font-family:"Inter",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;}
+h1,h2,h3,.brand span{font-family:"Plus Jakarta Sans",ui-sans-serif,sans-serif;}
+body.overlay-mode{background:transparent !important;overflow:hidden;}
+a{color:inherit;}
+button{font-family:inherit;}
+input,select{font-family:inherit;}
+
+/* ---------- Layout shell (control panel) ---------- */
+.app{display:none;min-height:100vh;flex-direction:column;}
+.app.show{display:flex;}
+.topbar{position:fixed;top:0;left:0;right:0;height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:20;box-shadow:var(--shadow);}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;}
+.brand .logo-dot{width:30px;height:30px;border-radius:10px;background:linear-gradient(150deg,var(--accent-2),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;}
+.sport-tabs{display:flex;gap:6px;background:var(--surface-2);padding:4px;border-radius:999px;}
+.sport-tab{padding:8px 16px;border-radius:999px;border:none;background:transparent;color:var(--text-2);font-weight:600;font-size:13.5px;cursor:pointer;transition:background .15s,color .15s;}
+.sport-tab.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(109,94,241,.3);}
+.conn-badge{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+.dot.on{background:var(--pos);box-shadow:0 0 0 3px var(--pos-soft);}
+.dot.off{background:var(--neg);box-shadow:0 0 0 3px var(--neg-soft);}
+
+.main{margin-top:60px;padding:24px;width:100%;max-width:1180px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;gap:20px;min-width:0;box-sizing:border-box;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);min-width:0;box-sizing:border-box;}
+.card h3{margin:0 0 14px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media (max-width:760px){.grid2{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
+.field label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.field input[type=text],.field input[type=number],.field select{padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text);font-size:14px;}
+.field input[type=color]{width:100%;height:38px;border:1px solid var(--border-strong);border-radius:10px;padding:2px;background:var(--surface);}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;padding:10px 18px;font-size:14px;cursor:pointer;font-weight:600;transition:filter .15s,transform .15s,box-shadow .15s;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 1px 2px rgba(31,22,56,.08);}
+.btn:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 8px 20px rgba(109,94,241,.28);}
+.btn:active{transform:translateY(0);}
+.btn.secondary{background:var(--surface-2);color:var(--text);box-shadow:none;}
+.btn.secondary:hover{box-shadow:0 4px 12px rgba(31,22,56,.1);}
+.btn.danger{background:transparent;border:1px solid var(--neg);color:var(--neg);padding:9px 17px;}
+.btn.small{padding:7px 14px;font-size:13px;}
+.btn.big{padding:16px 10px;font-size:20px;font-weight:800;width:100%;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;}
+.copybox{display:flex;gap:8px;align-items:center;min-width:0;}
+.copybox input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface-2);color:var(--text-2);font-size:12.5px;font-family:monospace;}
+.note{font-size:12.5px;color:var(--muted);line-height:1.5;}
+.teamcard{border-radius:14px;padding:14px;border:1px solid var(--border);}
+.score-display{display:flex;align-items:center;justify-content:center;gap:18px;padding:18px 0;}
+.score-display .num{font-family:"Plus Jakarta Sans";font-size:48px;font-weight:800;}
+.score-display .sep{font-size:32px;color:var(--muted);font-weight:300;}
+.pill-switch{display:flex;background:var(--surface-2);border-radius:999px;padding:3px;}
+.pill-switch button{flex:1;border:none;background:transparent;padding:8px 12px;border-radius:999px;font-weight:600;font-size:13px;cursor:pointer;color:var(--text-2);}
+.pill-switch button.active{background:var(--accent);color:#fff;}
+.stepper{display:flex;align-items:center;gap:10px;}
+.stepper button{width:36px;height:36px;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);}
+.stepper .val{min-width:44px;text-align:center;font-weight:800;font-size:18px;font-family:"Plus Jakarta Sans";}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;box-shadow:var(--shadow-lg);z-index:999;opacity:0;pointer-events:none;transition:opacity .2s;}
+.toast.show{opacity:1;}
+.dots-row{display:flex;gap:6px;}
+.dots-row .p-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border-strong);cursor:pointer;}
+.dots-row .p-dot.on{background:var(--pos);border-color:var(--pos);}
+.timer-display{font-family:"Oswald",monospace;font-size:34px;font-weight:700;text-align:center;}
+.hidden{display:none !important;}
+
+/* ---------- Overlay (broadcast scorebug) ---------- */
+#overlay{display:none;position:fixed;inset:0;background:transparent;font-family:"Inter",sans-serif;}
+body.overlay-mode #overlay{display:block;}
+.bug{position:absolute;left:40px;bottom:46px;display:flex;align-items:stretch;box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:10px;overflow:hidden;font-family:"Plus Jakarta Sans",sans-serif;}
+.bug .team{display:flex;align-items:center;gap:10px;padding:10px 20px;background:rgba(17,14,26,.88);color:#fff;min-width:150px;}
+.bug .team .swatch{width:10px;height:10px;border-radius:50%;}
+.bug .team .tname{font-weight:700;font-size:19px;letter-spacing:.01em;text-transform:uppercase;}
+.bug .score{display:flex;align-items:center;justify-content:center;padding:10px 22px;font-size:26px;font-weight:800;color:#fff;min-width:64px;font-family:"Oswald",sans-serif;}
+.bug .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 16px;background:rgba(10,8,16,.92);color:#cfcad9;font-size:12px;font-weight:600;min-width:84px;text-align:center;gap:2px;}
+.bug .mid .big{color:#fff;font-size:16px;font-family:"Oswald",sans-serif;}
+.subline{position:absolute;left:40px;bottom:14px;background:rgba(17,14,26,.82);color:#e9e4f7;padding:5px 16px;border-radius:7px;font-size:13px;font-weight:600;letter-spacing:.02em;max-width:640px;}
+.title-chip{position:absolute;left:40px;top:40px;background:rgba(17,14,26,.82);color:#fff;padding:7px 18px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:"Plus Jakarta Sans";}
+
+/* ---------- Mobile control panel ---------- */
+@media (max-width:720px){
+  .topbar{height:auto;flex-direction:column;align-items:stretch;gap:8px;padding:10px 14px;position:static;}
+  .main{margin-top:0;padding:14px;}
+  .brand{justify-content:center;font-size:15px;}
+  .sport-tabs{overflow-x:auto;justify-content:flex-start;}
+  .sport-tab{white-space:nowrap;}
+  .conn-badge{justify-content:center;}
+  .score-display .num{font-size:36px;}
+  .btn-grid{grid-template-columns:repeat(3,1fr);}
+  .btn.big{padding:14px 8px;font-size:18px;}
+  .row{gap:8px;}
+  .card{padding:16px;}
+}
+</style>
+</head>
+<body>
+
+<div id="controlPanel" class="app">
+  <div class="topbar">
+    <div class="brand"><div class="logo-dot">S</div><span>Glownest Scoreboard</span></div>
+    <div class="sport-tabs" id="sportTabs"></div>
+    <div class="conn-badge"><span class="dot" id="connDot"></span><span id="connText">Not connected</span></div>
+  </div>
+  <div class="main" id="mainArea"></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<div id="overlay"></div>
+
+<script>
+/* ============================================================
+   Glownest Scoreboard — OBS live scoring overlay + control panel
+   ============================================================ */
+const SPORTS = ['cricket','football','volleyball','kabaddi'];
+const SPORT_LABEL = {cricket:'Cricket',football:'Football',volleyball:'Volleyball',kabaddi:'Kabaddi'};
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function qs(k){ return new URLSearchParams(location.search).get(k); }
+function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtClock(ms){
+  if(ms<0) ms=0;
+  const totalSec = Math.floor(ms/1000);
+  const m = Math.floor(totalSec/60), s = totalSec%60;
+  return pad2(m)+':'+pad2(s);
+}
+
+/* ---------------- default match data ---------------- */
+function defaultMatch(sport){
+  return {
+    sport: sport||'cricket',
+    title:'',
+    teamA:{name:'Team A', short:'TMA', color:'#6d5ef1'},
+    teamB:{name:'Team B', short:'TMB', color:'#e5484d'},
+    cricket:{
+      battingTeam:'A', innings:1, target:null,
+      scoreA:{runs:0,wickets:0,overs:0,balls:0,extras:0},
+      scoreB:{runs:0,wickets:0,overs:0,balls:0,extras:0},
+      striker:{name:'Batsman 1',runs:0,balls:0},
+      nonStriker:{name:'Batsman 2',runs:0,balls:0},
+      bowler:{name:'Bowler',overs:0,balls:0,runs:0,wickets:0},
+    },
+    football:{
+      scoreA:0, scoreB:0, half:1, clockRunning:false, clockStartEpoch:null, clockBaseMs:0, addedTime:0,
+      cardsA:{yellow:0,red:0}, cardsB:{yellow:0,red:0},
+    },
+    volleyball:{
+      setsA:0, setsB:0, pointsA:0, pointsB:0, currentSet:1, server:'A', history:[],
+    },
+    kabaddi:{
+      scoreA:0, scoreB:0, half:1, clockRunning:false, clockStartEpoch:null, clockBaseMs:0,
+      halfLengthMin:20, allOutA:0, allOutB:0, playersLeftA:7, playersLeftB:7,
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+let MATCH = defaultMatch('cricket');
+let currentSport = 'cricket';
+const isOverlay = qs('view')==='overlay';
+
+/* ---------------- settings / connection (localStorage) ---------------- */
+const LS_KEY = 'glownest_scoreboard_settings_v1';
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { url:'https://streambiz-manager-default-rtdb.firebaseio.com', code:'' };
+}
+function saveSettings(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(e){} }
+let SETTINGS = loadSettings();
+if(isOverlay){
+  const urlCode = qs('code'); const urlDbUrl = qs('db');
+  if(urlCode) SETTINGS.code = urlCode;
+  if(urlDbUrl) SETTINGS.url = decodeURIComponent(urlDbUrl);
+}
+if(!SETTINGS.code){ SETTINGS.code = uid()+uid(); saveSettings(SETTINGS); }
+
+function cloudUrl(){
+  return SETTINGS.url.replace(/\/+$/,'') + '/scoreboard/' + encodeURIComponent(SETTINGS.code) + '.json';
+}
+async function fetchWithTimeout(url, ms, opts){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), ms);
+  try{ return await fetch(url, {...(opts||{}), signal: ctrl.signal}); }
+  finally{ clearTimeout(t); }
+}
+
+let pushTimer = null;
+function setConn(state, text){
+  const dot = document.getElementById('connDot');
+  if(dot){ dot.className='dot ' + (state||''); }
+  const t = document.getElementById('connText');
+  if(t) t.textContent = text;
+}
+async function pushMatch(){
+  if(!SETTINGS.url || !SETTINGS.code) return;
+  try{
+    MATCH.updatedAt = Date.now();
+    const res = await fetchWithTimeout(cloudUrl(), 8000, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(MATCH)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    setConn('on','Synced ✓');
+  }catch(e){ setConn('off','Sync failed — retrying'); }
+}
+function schedulePush(){
+  if(isOverlay) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushMatch, 350);
+}
+async function pullMatch(){
+  if(!SETTINGS.url || !SETTINGS.code) return null;
+  try{
+    const res = await fetchWithTimeout(cloudUrl(), 8000);
+    if(!res.ok) return null;
+    const j = await res.json();
+    return (j && typeof j==='object') ? j : null;
+  }catch(e){ return null; }
+}
+function mergeDefaults(m){
+  const d = defaultMatch(m.sport||'cricket');
+  function deep(target, src){
+    for(const k in target){
+      if(src && src[k]!==undefined){
+        if(typeof target[k]==='object' && target[k]!==null && !Array.isArray(target[k])){
+          deep(target[k], src[k]);
+        } else target[k]=src[k];
+      }
+    }
+  }
+  deep(d, m);
+  if(Array.isArray(m.volleyball && m.volleyball.history)) d.volleyball.history = m.volleyball.history;
+  return d;
+}
+
+/* ================= CONTROL PANEL ================= */
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+function renderSportTabs(){
+  const el = document.getElementById('sportTabs');
+  el.innerHTML = SPORTS.map(s=>`<button class="sport-tab ${s===currentSport?'active':''}" data-sport="${s}">${SPORT_LABEL[s]}</button>`).join('');
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    currentSport = b.dataset.sport;
+    MATCH.sport = currentSport;
+    renderSportTabs();
+    renderMain();
+    schedulePush();
+  });
+}
+function renderMain(){
+  const el = document.getElementById('mainArea');
+  el.innerHTML = sectionSetup() + sectionOverlayLink() + sportSection(currentSport);
+  bindSetup();
+  bindOverlayLink();
+  bindSportSection(currentSport);
+}
+
+function sectionSetup(){
+  const A = MATCH.teamA, B = MATCH.teamB;
+  return `
+  <div class="card">
+    <h3>Match Setup</h3>
+    <div class="field"><label>Match Title / Note (optional)</label><input type="text" id="matchTitle" value="${escapeHtml(MATCH.title)}" placeholder="e.g. Final — City Ground"></div>
+    <div class="grid2">
+      <div class="teamcard" style="border-color:${A.color}66;">
+        <div class="field"><label>Team A Name</label><input type="text" id="teamAName" value="${escapeHtml(A.name)}"></div>
+        <div class="grid2">
+          <div class="field"><label>Short Code</label><input type="text" id="teamAShort" maxlength="5" value="${escapeHtml(A.short)}"></div>
+          <div class="field"><label>Color</label><input type="color" id="teamAColor" value="${A.color}"></div>
+        </div>
+      </div>
+      <div class="teamcard" style="border-color:${B.color}66;">
+        <div class="field"><label>Team B Name</label><input type="text" id="teamBName" value="${escapeHtml(B.name)}"></div>
+        <div class="grid2">
+          <div class="field"><label>Short Code</label><input type="text" id="teamBShort" maxlength="5" value="${escapeHtml(B.short)}"></div>
+          <div class="field"><label>Color</label><input type="color" id="teamBColor" value="${B.color}"></div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <button class="btn danger small" id="newMatchBtn">New Match (reset ${SPORT_LABEL[currentSport]})</button>
+    </div>
+  </div>`;
+}
+function bindSetup(){
+  const b = id=>document.getElementById(id);
+  b('matchTitle').oninput = e=>{ MATCH.title = e.target.value; schedulePush(); };
+  b('teamAName').oninput = e=>{ MATCH.teamA.name = e.target.value; schedulePush(); renderOverlayPreviewMaybe(); };
+  b('teamBName').oninput = e=>{ MATCH.teamB.name = e.target.value; schedulePush(); };
+  b('teamAShort').oninput = e=>{ MATCH.teamA.short = e.target.value.toUpperCase(); schedulePush(); };
+  b('teamBShort').oninput = e=>{ MATCH.teamB.short = e.target.value.toUpperCase(); schedulePush(); };
+  b('teamAColor').oninput = e=>{ MATCH.teamA.color = e.target.value; schedulePush(); };
+  b('teamBColor').oninput = e=>{ MATCH.teamB.color = e.target.value; schedulePush(); };
+  b('newMatchBtn').onclick = ()=>{
+    if(!confirm('Reset '+SPORT_LABEL[currentSport]+' scoreboard? Team names are kept.')) return;
+    const fresh = defaultMatch(currentSport);
+    MATCH[currentSport] = fresh[currentSport];
+    renderMain(); schedulePush(); toast('Match reset');
+  };
+}
+function renderOverlayPreviewMaybe(){}
+
+function sectionOverlayLink(){
+  const base = location.origin + location.pathname;
+  const url = base + '?view=overlay&sport=' + currentSport + '&code=' + encodeURIComponent(SETTINGS.code) + '&db=' + encodeURIComponent(SETTINGS.url);
+  return `
+  <div class="card">
+    <h3>OBS Browser Source</h3>
+    <p class="note">Add a <b>Browser Source</b> in OBS, paste this URL, size 1920×1080. Background is transparent — place it over your camera/game source. This link always shows the <b>${SPORT_LABEL[currentSport]}</b> scoreboard you're currently editing. Keep this control panel open on a phone/laptop and the overlay updates live wherever OBS is running.</p>
+    <div class="copybox">
+      <input type="text" readonly id="overlayUrl" value="${escapeHtml(url)}">
+      <button class="btn small" id="copyOverlayBtn">Copy</button>
+      <button class="btn secondary small" id="openOverlayBtn">Preview</button>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="field" style="flex:1;min-width:220px;"><label>Sync Code (unique to your scoreboard)</label><input type="text" id="syncCode" value="${escapeHtml(SETTINGS.code)}"></div>
+      <button class="btn secondary small" id="regenCodeBtn" style="margin-top:20px;">New Code</button>
+    </div>
+  </div>`;
+}
+function bindOverlayLink(){
+  document.getElementById('copyOverlayBtn').onclick = ()=>{
+    const inp = document.getElementById('overlayUrl');
+    inp.select(); document.execCommand('copy');
+    navigator.clipboard && navigator.clipboard.writeText(inp.value).catch(()=>{});
+    toast('Overlay URL copied');
+  };
+  document.getElementById('openOverlayBtn').onclick = ()=>{
+    window.open(document.getElementById('overlayUrl').value, '_blank');
+  };
+  document.getElementById('syncCode').onchange = e=>{
+    SETTINGS.code = e.target.value.trim() || uid()+uid();
+    saveSettings(SETTINGS); renderMain(); toast('Sync code updated'); schedulePush();
+  };
+  document.getElementById('regenCodeBtn').onclick = ()=>{
+    SETTINGS.code = uid()+uid(); saveSettings(SETTINGS); renderMain(); toast('New sync code generated — update your OBS Browser Source URL'); schedulePush();
+  };
+}
+
+function sportSection(sport){
+  if(sport==='cricket') return cricketControlsHtml();
+  if(sport==='football') return footballControlsHtml();
+  if(sport==='volleyball') return volleyballControlsHtml();
+  if(sport==='kabaddi') return kabaddiControlsHtml();
+  return '';
+}
+function bindSportSection(sport){
+  if(sport==='cricket') bindCricketControls();
+  if(sport==='football') bindFootballControls();
+  if(sport==='volleyball') bindVolleyballControls();
+  if(sport==='kabaddi') bindKabaddiControls();
+}
+
+/* ============================================================ */
+/* script continues in part 2 (sport modules) */
+</script>
+<script src="sports.js"></script>
+<script src="overlay.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>
