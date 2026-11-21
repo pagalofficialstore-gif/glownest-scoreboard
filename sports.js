@@ -248,18 +248,56 @@ function updateFbClockDisplay(){
 }
 
 /* ---------------- VOLLEYBALL ---------------- */
+let vbUndoStack = [];
+let vbRedoStack = [];
+function vbSnapshot(){ return JSON.parse(JSON.stringify(MATCH.volleyball)); }
+function vbPushUndo(){
+  vbUndoStack.push(vbSnapshot());
+  if(vbUndoStack.length>50) vbUndoStack.shift();
+  vbRedoStack = [];
+}
+function vbUndo(){
+  if(!vbUndoStack.length) return;
+  vbRedoStack.push(vbSnapshot());
+  MATCH.volleyball = vbUndoStack.pop();
+  renderMain(); schedulePush(); toast('Undone');
+}
+function vbRedo(){
+  if(!vbRedoStack.length) return;
+  vbUndoStack.push(vbSnapshot());
+  MATCH.volleyball = vbRedoStack.pop();
+  renderMain(); schedulePush(); toast('Redone');
+}
+function vbDecidingSet(v){ return (v.setsToWin||3)*2 - 1; }
+function vbTargetPoints(v){ return v.currentSet>=vbDecidingSet(v) ? 15 : 25; }
+function vbCheckMatchWinner(){
+  const v = MATCH.volleyball;
+  if(v.setsA>=(v.setsToWin||3)) v.matchWinner='A';
+  else if(v.setsB>=(v.setsToWin||3)) v.matchWinner='B';
+}
 function volleyballControlsHtml(){
   const v = MATCH.volleyball;
-  const target = v.currentSet>=5 ? 15 : 25;
+  const target = vbTargetPoints(v);
+  const winner = v.matchWinner==='A' ? MATCH.teamA.name : (v.matchWinner==='B' ? MATCH.teamB.name : '');
   return `
   <div class="card">
     <h3>🏐 Volleyball — Set ${v.currentSet}</h3>
+    <div class="row" style="justify-content:center;gap:10px;margin-bottom:10px;">
+      <label class="note" style="display:flex;align-items:center;gap:6px;">Format:
+        <select id="vbFormatSelect">
+          <option value="3" ${(v.setsToWin||3)===3?'selected':''}>Best of 5 (to 3 sets)</option>
+          <option value="2" ${(v.setsToWin||3)===2?'selected':''}>Best of 3 (to 2 sets)</option>
+        </select>
+      </label>
+    </div>
+    ${winner?`<div class="winner-banner">🏆 ${escapeHtml(winner)} wins the match ${v.setsA}-${v.setsB}!</div>`:''}
     <div class="score-display">
       <div style="text-align:center;"><div class="note">${escapeHtml(MATCH.teamA.short)} ${v.server==='A'?'🏐':''}</div><div class="num">${v.pointsA}</div><div class="note">Sets won: ${v.setsA}</div></div>
       <div class="sep">:</div>
       <div style="text-align:center;"><div class="note">${escapeHtml(MATCH.teamB.short)} ${v.server==='B'?'🏐':''}</div><div class="num">${v.pointsB}</div><div class="note">Sets won: ${v.setsB}</div></div>
     </div>
     <p class="note" style="text-align:center;">Playing to ${target} (win by 2). ${v.history.length?('Sets so far: '+v.history.map(h=>h.a+'-'+h.b).join(', ')):''}</p>
+    ${winner?'':`
     <div class="row" style="justify-content:center;">
       <button class="btn big" data-pt="A" style="background:${MATCH.teamA.color};">+1 ${escapeHtml(MATCH.teamA.short)}</button>
       <button class="btn big" data-pt="B" style="background:${MATCH.teamB.color};">+1 ${escapeHtml(MATCH.teamB.short)}</button>
@@ -269,12 +307,28 @@ function volleyballControlsHtml(){
       <button class="btn secondary small" data-unpt="B">−1 ${escapeHtml(MATCH.teamB.short)}</button>
       <button class="btn secondary small" id="toggleServerBtn">⇄ Toggle Server</button>
       <button class="btn danger small" id="endSetBtn">End Set Now</button>
+    </div>`}
+    <div class="row" style="justify-content:center;margin-top:10px;">
+      <button class="btn secondary small" id="vbUndoBtn" ${vbUndoStack.length?'':'disabled'}>↶ Undo</button>
+      <button class="btn secondary small" id="vbRedoBtn" ${vbRedoStack.length?'':'disabled'}>↷ Redo</button>
     </div>
+  </div>
+  <div class="card">
+    <h3>Manual correction</h3>
+    <div class="grid2">
+      <div class="field"><label>${escapeHtml(MATCH.teamA.short)} points / sets</label>
+        <div class="row"><input type="number" id="vbManA_pts" value="${v.pointsA}" min="0"><input type="number" id="vbManA_sets" value="${v.setsA}" min="0"></div>
+      </div>
+      <div class="field"><label>${escapeHtml(MATCH.teamB.short)} points / sets</label>
+        <div class="row"><input type="number" id="vbManB_pts" value="${v.pointsB}" min="0"><input type="number" id="vbManB_sets" value="${v.setsB}" min="0"></div>
+      </div>
+    </div>
+    <button class="btn secondary small" id="vbManualApplyBtn">Apply manual values</button>
   </div>`;
 }
 function volleyballCheckSetEnd(){
   const v = MATCH.volleyball;
-  const target = v.currentSet>=5 ? 15 : 25;
+  const target = vbTargetPoints(v);
   const a=v.pointsA,b=v.pointsB;
   if((a>=target||b>=target) && Math.abs(a-b)>=2){
     volleyballEndSet();
@@ -286,19 +340,42 @@ function volleyballEndSet(){
   if(v.pointsA>v.pointsB) v.setsA++; else if(v.pointsB>v.pointsA) v.setsB++;
   v.pointsA=0; v.pointsB=0; v.currentSet++;
   v.server = v.server==='A'?'B':'A';
+  vbCheckMatchWinner();
   renderMain(); schedulePush(); toast('Set recorded');
 }
 function bindVolleyballControls(){
   const v = MATCH.volleyball;
+  document.getElementById('vbFormatSelect').onchange = e=>{
+    vbPushUndo();
+    v.setsToWin = parseInt(e.target.value,10);
+    renderMain(); schedulePush(); toast('Format updated');
+  };
   document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{
+    vbPushUndo();
     v['points'+b.dataset.pt]++; v.server=b.dataset.pt;
     renderMain(); schedulePush(); volleyballCheckSetEnd();
   });
   document.querySelectorAll('[data-unpt]').forEach(b=>b.onclick=()=>{
+    vbPushUndo();
     const k='points'+b.dataset.unpt; v[k]=clamp(v[k]-1,0,99); renderMain(); schedulePush();
   });
-  document.getElementById('toggleServerBtn').onclick = ()=>{ v.server = v.server==='A'?'B':'A'; renderMain(); schedulePush(); };
-  document.getElementById('endSetBtn').onclick = ()=>{ if(confirm('End this set now and record the score?')) volleyballEndSet(); };
+  const toggleBtn = document.getElementById('toggleServerBtn');
+  if(toggleBtn) toggleBtn.onclick = ()=>{ vbPushUndo(); v.server = v.server==='A'?'B':'A'; renderMain(); schedulePush(); };
+  const endBtn = document.getElementById('endSetBtn');
+  if(endBtn) endBtn.onclick = ()=>{ if(confirm('End this set now and record the score?')){ vbPushUndo(); volleyballEndSet(); } };
+
+  document.getElementById('vbUndoBtn').onclick = vbUndo;
+  document.getElementById('vbRedoBtn').onclick = vbRedo;
+
+  document.getElementById('vbManualApplyBtn').onclick = ()=>{
+    vbPushUndo();
+    v.pointsA = clamp(parseInt(document.getElementById('vbManA_pts').value,10)||0,0,999);
+    v.setsA   = clamp(parseInt(document.getElementById('vbManA_sets').value,10)||0,0,9);
+    v.pointsB = clamp(parseInt(document.getElementById('vbManB_pts').value,10)||0,0,999);
+    v.setsB   = clamp(parseInt(document.getElementById('vbManB_sets').value,10)||0,0,9);
+    vbCheckMatchWinner();
+    renderMain(); schedulePush(); toast('Manual values applied');
+  };
 }
 
 /* ---------------- KABADDI ---------------- */

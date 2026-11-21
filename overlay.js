@@ -11,7 +11,7 @@ function renderOverlay(){
   }
   if(sport==='cricket') html += overlayCricket(A,B,MATCH.cricket);
   else if(sport==='football') html += overlayFootball(A,B,MATCH.football);
-  else if(sport==='volleyball') html += overlayVolleyball(A,B,MATCH.volleyball);
+  else if(sport==='volleyball') html += overlayVolleyball(MATCH,MATCH.volleyball);
   else if(sport==='kabaddi') html += overlayKabaddi(A,B,MATCH.kabaddi);
   el.innerHTML = html;
 }
@@ -51,16 +51,33 @@ function overlayFootball(A,B,f){
   <div class="subline">🟨${f.cardsA.yellow} 🟥${f.cardsA.red} &nbsp; ${escapeHtml(A.name)} vs ${escapeHtml(B.name)} &nbsp; 🟨${f.cardsB.yellow} 🟥${f.cardsB.red}</div>`;
 }
 
-function overlayVolleyball(A,B,v){
+function overlayVolleyball(M,v){
+  const A = M.teamA, B = M.teamB;
+  const flagA = A.logo
+    ? `<img src="${A.logo}" alt="">`
+    : `<div class="vb-badge" style="background:${A.color};">${escapeHtml(A.short)}</div>`;
+  const flagB = B.logo
+    ? `<img src="${B.logo}" alt="">`
+    : `<div class="vb-badge" style="background:${B.color};">${escapeHtml(B.short)}</div>`;
+  const mid = M.tournamentLogo
+    ? `<img src="${M.tournamentLogo}" alt="">`
+    : (M.tournamentName ? `<span class="vb-tname">${escapeHtml(M.tournamentName)}</span>` : `<span class="vb-tname">🏐</span>`);
+  const winnerName = v.matchWinner==='A' ? A.name : (v.matchWinner==='B' ? B.name : '');
+  const serveA = v.server==='A' ? '<span class="vb-serve">●</span> ' : '';
+  const serveB = v.server==='B' ? ' <span class="vb-serve">●</span>' : '';
   return `
-  <div class="bug">
-    <div class="team" style="background:${A.color}cc;"><span class="swatch" style="background:${v.server==='A'?'#fff':'transparent'};"></span><span class="tname">${escapeHtml(A.short)}</span></div>
-    <div class="score" style="background:rgba(17,14,26,.92);">${v.pointsA}</div>
-    <div class="mid"><span class="big">SET ${v.currentSet}</span><span>${v.setsA}-${v.setsB} sets</span></div>
-    <div class="score" style="background:rgba(17,14,26,.92);">${v.pointsB}</div>
-    <div class="team" style="background:${B.color}cc;"><span class="tname">${escapeHtml(B.short)}</span><span class="swatch" style="background:${v.server==='B'?'#fff':'transparent'};"></span></div>
+  <div class="vb-bug">
+    <div class="vb-seg vb-flag">${flagA}</div>
+    <div class="vb-seg vb-abbr" style="background:linear-gradient(135deg,${A.color},#2a1250);">${serveA}${escapeHtml(A.short)}</div>
+    <div class="vb-seg vb-sets"><span>SETS</span><b>${v.setsA}</b></div>
+    <div class="vb-seg vb-points">${v.pointsA}</div>
+    <div class="vb-seg vb-mid">${mid}</div>
+    <div class="vb-seg vb-points">${v.pointsB}</div>
+    <div class="vb-seg vb-sets"><span>SETS</span><b>${v.setsB}</b></div>
+    <div class="vb-seg vb-abbr" style="background:linear-gradient(135deg,#2a1250,${B.color});">${escapeHtml(B.short)}${serveB}</div>
+    <div class="vb-seg vb-flag">${flagB}</div>
   </div>
-  ${v.history.length?`<div class="subline">${v.history.map(h=>h.a+'-'+h.b).join('  ·  ')}</div>`:''}`;
+  <div class="vb-subline">${winnerName ? `🏆 ${escapeHtml(winnerName)} WINS THE MATCH` : `SET ${v.currentSet}${v.history.length?(' · '+v.history.map(h=>h.a+'-'+h.b).join('  ·  ')):''}`}</div>`;
 }
 
 function overlayKabaddi(A,B,k){

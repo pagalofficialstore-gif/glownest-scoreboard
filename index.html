@@ -99,6 +99,29 @@ body.overlay-mode #overlay{display:block;}
 .subline{position:absolute;left:40px;bottom:14px;background:rgba(17,14,26,.82);color:#e9e4f7;padding:5px 16px;border-radius:7px;font-size:13px;font-weight:600;letter-spacing:.02em;max-width:640px;}
 .title-chip{position:absolute;left:40px;top:40px;background:rgba(17,14,26,.82);color:#fff;padding:7px 18px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:"Plus Jakarta Sans";}
 
+/* ---------- Volleyball compact broadcast bug ---------- */
+.vb-bug{position:absolute;left:50%;bottom:50px;transform:translateX(-50%);display:flex;align-items:stretch;height:78px;filter:drop-shadow(0 10px 26px rgba(0,0,0,.45));font-family:"Plus Jakarta Sans",sans-serif;}
+.vb-seg{display:flex;align-items:center;justify-content:center;position:relative;clip-path:polygon(16px 0,100% 0,calc(100% - 16px) 100%,0 100%);margin-left:-16px;}
+.vb-bug .vb-seg:first-child{margin-left:0;clip-path:polygon(0 0,100% 0,calc(100% - 16px) 100%,0 100%);}
+.vb-bug .vb-seg:last-child{clip-path:polygon(16px 0,100% 0,100% 100%,0 100%);}
+.vb-flag{width:92px;background:#fff;padding:0;overflow:hidden;}
+.vb-flag img{width:100%;height:100%;object-fit:cover;display:block;}
+.vb-badge{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;font-family:"Oswald",sans-serif;}
+.vb-abbr{width:104px;color:#fff;font-weight:800;font-size:25px;letter-spacing:.02em;font-family:"Oswald",sans-serif;gap:6px;}
+.vb-serve{color:#ffd35c;font-size:12px;}
+.vb-sets{width:66px;background:#241043;color:#d9c9ff;flex-direction:column;gap:0;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+.vb-sets b{font-size:22px;color:#fff;font-family:"Oswald",sans-serif;line-height:1.1;}
+.vb-points{width:96px;background:linear-gradient(135deg,#7a2bb0,#b72a9c);color:#fff;font-size:40px;font-weight:800;font-family:"Oswald",sans-serif;}
+.vb-mid{width:88px;background:linear-gradient(135deg,#9b2fae,#c23aa6);padding:4px 10px;}
+.vb-mid img{max-width:60px;max-height:44px;object-fit:contain;}
+.vb-tname{color:#fff;font-size:11px;font-weight:700;text-align:center;text-transform:uppercase;letter-spacing:.02em;line-height:1.2;}
+.vb-subline{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(17,14,26,.82);color:#e9e4f7;padding:6px 20px;border-radius:7px;font-size:13px;font-weight:700;letter-spacing:.03em;white-space:nowrap;font-family:"Plus Jakarta Sans",sans-serif;}
+
+/* ---------- Volleyball control panel extras ---------- */
+.winner-banner{background:linear-gradient(135deg,#fcd34d,#f59e0b);color:#3a2a00;font-weight:800;text-align:center;padding:10px 16px;border-radius:10px;margin-bottom:12px;font-size:15px;}
+.logo-row{display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;}
+.logo-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;background:#fff;border:1px solid var(--border);}
+
 /* ---------- Mobile control panel ---------- */
 @media (max-width:720px){
   .topbar{height:auto;flex-direction:column;align-items:stretch;gap:8px;padding:10px 14px;position:static;}
@@ -153,8 +176,10 @@ function defaultMatch(sport){
   return {
     sport: sport||'cricket',
     title:'',
-    teamA:{name:'Team A', short:'TMA', color:'#6d5ef1'},
-    teamB:{name:'Team B', short:'TMB', color:'#e5484d'},
+    teamA:{name:'Team A', short:'TMA', color:'#6d5ef1', logo:''},
+    teamB:{name:'Team B', short:'TMB', color:'#e5484d', logo:''},
+    tournamentName:'',
+    tournamentLogo:'',
     cricket:{
       battingTeam:'A', innings:1, target:null,
       scoreA:{runs:0,wickets:0,overs:0,balls:0,extras:0},
@@ -169,6 +194,7 @@ function defaultMatch(sport){
     },
     volleyball:{
       setsA:0, setsB:0, pointsA:0, pointsB:0, currentSet:1, server:'A', history:[],
+      setsToWin:3, matchWinner:null,
     },
     kabaddi:{
       scoreA:0, scoreB:0, half:1, clockRunning:false, clockStartEpoch:null, clockBaseMs:0,
@@ -287,12 +313,32 @@ function sectionSetup(){
   <div class="card">
     <h3>Match Setup</h3>
     <div class="field"><label>Match Title / Note (optional)</label><input type="text" id="matchTitle" value="${escapeHtml(MATCH.title)}" placeholder="e.g. Final — City Ground"></div>
+    <div class="field">
+      <label>Tournament Name (shown in overlay center, optional)</label>
+      <input type="text" id="tournamentName" value="${escapeHtml(MATCH.tournamentName||'')}" placeholder="e.g. Glownest Volleyball Cup">
+    </div>
+    <div class="field">
+      <label>Tournament Logo (optional — shown instead of the name if set)</label>
+      <div class="logo-row">
+        ${MATCH.tournamentLogo?`<img class="logo-thumb" src="${MATCH.tournamentLogo}">`:''}
+        <input type="file" accept="image/*" id="tournamentLogoInput">
+        ${MATCH.tournamentLogo?`<button type="button" class="btn secondary small" id="removeTournamentLogoBtn">Remove</button>`:''}
+      </div>
+    </div>
     <div class="grid2">
       <div class="teamcard" style="border-color:${A.color}66;">
         <div class="field"><label>Team A Name</label><input type="text" id="teamAName" value="${escapeHtml(A.name)}"></div>
         <div class="grid2">
           <div class="field"><label>Short Code</label><input type="text" id="teamAShort" maxlength="5" value="${escapeHtml(A.short)}"></div>
           <div class="field"><label>Color</label><input type="color" id="teamAColor" value="${A.color}"></div>
+        </div>
+        <div class="field">
+          <label>Logo / Flag (optional — falls back to color badge if not set)</label>
+          <div class="logo-row">
+            ${A.logo?`<img class="logo-thumb" src="${A.logo}">`:''}
+            <input type="file" accept="image/*" id="teamALogoInput">
+            ${A.logo?`<button type="button" class="btn secondary small" id="removeTeamALogoBtn">Remove</button>`:''}
+          </div>
         </div>
       </div>
       <div class="teamcard" style="border-color:${B.color}66;">
@@ -301,6 +347,14 @@ function sectionSetup(){
           <div class="field"><label>Short Code</label><input type="text" id="teamBShort" maxlength="5" value="${escapeHtml(B.short)}"></div>
           <div class="field"><label>Color</label><input type="color" id="teamBColor" value="${B.color}"></div>
         </div>
+        <div class="field">
+          <label>Logo / Flag (optional — falls back to color badge if not set)</label>
+          <div class="logo-row">
+            ${B.logo?`<img class="logo-thumb" src="${B.logo}">`:''}
+            <input type="file" accept="image/*" id="teamBLogoInput">
+            ${B.logo?`<button type="button" class="btn secondary small" id="removeTeamBLogoBtn">Remove</button>`:''}
+          </div>
+        </div>
       </div>
     </div>
     <div class="row" style="margin-top:6px;">
@@ -308,19 +362,42 @@ function sectionSetup(){
     </div>
   </div>`;
 }
+function readImageFile(file, cb){
+  if(!file) return;
+  if(!file.type || !file.type.startsWith('image/')){ toast('Please choose an image file'); return; }
+  if(file.size > 1.5*1024*1024){ toast('Image too large (max 1.5MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = ()=>cb(reader.result);
+  reader.readAsDataURL(file);
+}
 function bindSetup(){
   const b = id=>document.getElementById(id);
   b('matchTitle').oninput = e=>{ MATCH.title = e.target.value; schedulePush(); };
+  b('tournamentName').oninput = e=>{ MATCH.tournamentName = e.target.value; schedulePush(); };
   b('teamAName').oninput = e=>{ MATCH.teamA.name = e.target.value; schedulePush(); renderOverlayPreviewMaybe(); };
   b('teamBName').oninput = e=>{ MATCH.teamB.name = e.target.value; schedulePush(); };
   b('teamAShort').oninput = e=>{ MATCH.teamA.short = e.target.value.toUpperCase(); schedulePush(); };
   b('teamBShort').oninput = e=>{ MATCH.teamB.short = e.target.value.toUpperCase(); schedulePush(); };
   b('teamAColor').oninput = e=>{ MATCH.teamA.color = e.target.value; schedulePush(); };
   b('teamBColor').oninput = e=>{ MATCH.teamB.color = e.target.value; schedulePush(); };
+
+  b('tournamentLogoInput').onchange = e=>{ readImageFile(e.target.files[0], data=>{ MATCH.tournamentLogo = data; renderMain(); schedulePush(); toast('Tournament logo updated'); }); };
+  const removeTL = b('removeTournamentLogoBtn');
+  if(removeTL) removeTL.onclick = ()=>{ MATCH.tournamentLogo=''; renderMain(); schedulePush(); };
+
+  b('teamALogoInput').onchange = e=>{ readImageFile(e.target.files[0], data=>{ MATCH.teamA.logo = data; renderMain(); schedulePush(); toast('Team A logo updated'); }); };
+  const removeTA = b('removeTeamALogoBtn');
+  if(removeTA) removeTA.onclick = ()=>{ MATCH.teamA.logo=''; renderMain(); schedulePush(); };
+
+  b('teamBLogoInput').onchange = e=>{ readImageFile(e.target.files[0], data=>{ MATCH.teamB.logo = data; renderMain(); schedulePush(); toast('Team B logo updated'); }); };
+  const removeTB = b('removeTeamBLogoBtn');
+  if(removeTB) removeTB.onclick = ()=>{ MATCH.teamB.logo=''; renderMain(); schedulePush(); };
+
   b('newMatchBtn').onclick = ()=>{
     if(!confirm('Reset '+SPORT_LABEL[currentSport]+' scoreboard? Team names are kept.')) return;
     const fresh = defaultMatch(currentSport);
     MATCH[currentSport] = fresh[currentSport];
+    if(currentSport==='volleyball' && typeof vbUndoStack!=='undefined'){ vbUndoStack=[]; vbRedoStack=[]; }
     renderMain(); schedulePush(); toast('Match reset');
   };
 }
